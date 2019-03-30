@@ -1,4 +1,4 @@
-#include <ESP8266WiFi.h>
+#include <ESP8266WiFi.h>                                              
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <Arduino.h>
@@ -9,21 +9,28 @@
 #include <WiFiClient.h>
 
 #ifndef STASSID
-#define STASSID "MakeNTU2019-A-2.4G"
+#define STASSID "MakeNTU2019-NCU"
 #define STAPSK  "lazy_tech"
-#define SERVER "http://1d0bcac3.ngrok.io"
+#define SERVER "http://4f15e259.ngrok.io"
 #endif
 
 const char *ssid = STASSID;
 const char *password = STAPSK;
 const String host = SERVER;
-const String configFilePath = "/config.json";
 
 String token = "undefined";
+boolean b_spaceStatus = false;
+int sinalPin[3] = {5,4,0};
+int totalSinalLength = 3;
 int deviceID = -1;
 
 void setup(){
   Serial.begin(115200);
+
+  for(int i=0;i<totalSinalLength;i++){
+    pinMode(sinalPin[i],INPUT);
+  }
+  
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   Serial.print("\nConnecting.");
@@ -42,7 +49,7 @@ void setup(){
   Serial.println("------------------------\n");
   Serial.print("Connected to ");
   Serial.println(ssid);
-  Serial.print("IP address: ");
+  Serial.print("IP address: ");                                       
   Serial.println(WiFi.localIP());
 
   Serial.println("geting token...");
@@ -55,13 +62,10 @@ void setup(){
 }
 
 void loop(){
-  int time = 10000;//random(1000, 5000);
-  String id = String(deviceID);
-  Serial.println("your device id:    "+id);
-  Serial.println("your access token: "+token);
-  Serial.println("random update time: "+String(time));
-  sendPost();
-  delay(time);
+  Serial.println("update!");
+  updateRequest();
+//  getSpaceStatus(totalSinalLength);
+  delay(5000);
 }
 
 String registered(){
@@ -80,6 +84,8 @@ String registered(){
         String token = doc["token"];
         deviceID = doc["id"];
         return token;
+      }else{
+        Serial.println("[HTTP] Server error code: "+String(httpCode));
       }
     }else{
       Serial.println("[HTTP] GET... failed");
@@ -87,49 +93,44 @@ String registered(){
     http.end();
   }else{
     Serial.println("[HTTP] Unable to connect");
-  }
+  }                                                            
   return "undefined";
 }
 
-void sendPost(){
+void updateRequest(){
   WiFiClient client;
   HTTPClient http;
   StaticJsonDocument<256> spaceStatus;
   spaceStatus["token"] = token;
-  spaceStatus["status"] = true;
-  String jsonToken = spaceStatus["token"];
-  String statusOfSpace = (spaceStatus["status"]==true?"true":"false");
+  spaceStatus = false;
+
   String path = "/api/update";
-  String parame = "token="+jsonToken+"&status="+statusOfSpace+"&space="+createPackage(16);
+  String ssts = (b_spaceStatus?"true":"false");
+  String parame = "token="+token+"&status="+ssts+"&space="+getSpaceStatus(totalSinalLength);
   if(http.begin(host+path)){
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     int statusCode = http.POST(parame);
     String result = http.getString();
-    Serial.println(parame);
-    Serial.println("status: "+String(statusCode));
-    Serial.println("result: "+result);
-    http.end();
+    Serial.println("result: "+result+", code:"+String(statusCode));
   }
 }
 
-String createPackage(const int len){
-  String result = "[";
-  const String space_template[] = "{\"pid\":1,\"status\":false,\"floor\":\"unknow\"}";
+String getSpaceStatus(int len){
+//  const size_t CAPACITY = JSON_ARRAY_SIZE(10);
+  String r = "[";
+  b_spaceStatus = false;
   for(int i=0;i<len;i++){
-    String r;
-    StaticJsonDocument<256> space;
-    space["pid"] = i;
-    space["status"] = sensorStatus(i);
-    space["floor"] = String(i/4+1);
-    serializeJson(space, r);
-    String b = ",";
-    if(i+1==len)
-      b = "]";
-    result+= (r.c_str()+b);
+    String s = sensorStatus(i);
+    if(s=="true")
+      b_spaceStatus = true;
+    String jsonObj = "{\"pid\":"+String(i)+",\"status\":"+s+",\"floor\":\"B1\"}"+(i+1<len?",":"");
+    r+=jsonObj;
   }
-  return result;
+  r+="]";
+  Serial.println(r);
+  return r;
 }
 
-boolean sensorStatus(int i){
-  return random(1)==(i%2);
+String sensorStatus(int p){
+  return digitalRead(sinalPin[p])==1?"true":"false";
 }
