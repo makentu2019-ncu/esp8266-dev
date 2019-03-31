@@ -11,7 +11,7 @@
 #ifndef STASSID
 #define STASSID "MakeNTU2019-NCU"
 #define STAPSK  "lazy_tech"
-#define SERVER "http://4f15e259.ngrok.io"
+#define SERVER "http://makentu2019-test.herokuapp.com"
 #endif
 
 const char *ssid = STASSID;
@@ -72,7 +72,7 @@ String registered(){
   WiFiClient client;
   HTTPClient http;
 
-  if (http.begin(client, host+"/api/registered?name=esp8266&lat=25.4444&lon=121.5555")){
+  if (http.begin(client, host+"/api/registered?name=esp8266&lat=25.045722&lon=121.5315245")){
     int httpCode = http.GET();
     if(httpCode > 0){
       //Serial.printf("[HTTP] GET... code: %d\n", httpCode);
